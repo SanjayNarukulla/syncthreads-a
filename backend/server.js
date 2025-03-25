@@ -1,73 +1,64 @@
 const express = require("express");
 const cors = require("cors");
 const bcrypt = require("bcryptjs");
-const session = require("express-session");
-const SQLiteStore = require("connect-sqlite3")(session);
+const jwt = require("jsonwebtoken");
 require("dotenv").config();
 
 const app = express();
 app.use(express.json());
+
+// Allow frontend to send credentials
 app.use(cors({ origin: "http://localhost:3000", credentials: true }));
 
-// Configure session middleware
-app.use(
-  session({
-    secret: process.env.SESSION_SECRET || "your_secret_key", // Change this in production
-    resave: false,
-    saveUninitialized: false,
-    store: new SQLiteStore({ db: "sessions.sqlite" }),
-    cookie: {
-      httpOnly: true,
-      secure: false, // Set to true if using HTTPS
-      sameSite: "lax",
-      maxAge: 1000 * 60 * 60 * 24, // 1 day
-    },
-  })
-);
+const SECRET_KEY = process.env.JWT_SECRET || "your_secret_key"; // Change this in production
 
 // Dummy Users (Replace with Database in Production)
 const users = [{ username: "admin", password: bcrypt.hashSync("password", 8) }];
 
 /**
- * 🔐 Login Route (Session-based)
+ * 🔐 Login Route (JWT Authentication)
  */
 app.post("/api/login", (req, res) => {
   const { username, password } = req.body;
   const user = users.find((u) => u.username === username);
 
   if (user && bcrypt.compareSync(password, user.password)) {
-    req.session.user = { username }; // Store user info in session
-    return res.json({ message: "Login successful", username });
+    const token = jwt.sign({ username }, SECRET_KEY, { expiresIn: "1h" });
+
+    return res.json({ message: "Login successful", token });
   }
   res.status(401).json({ message: "Invalid credentials" });
 });
 
 /**
- * 📌 Dashboard Route (Session Auth)
+ * 📌 Dashboard Route (JWT Auth)
  */
 app.get("/api/dashboard", (req, res) => {
-  if (!req.session.user) {
+  const token = req.headers.authorization?.split(" ")[1];
+
+  if (!token) {
     return res.status(401).json({ message: "Unauthorized" });
   }
-  res.json({
-    message: `Welcome, ${req.session.user.username}!`,
-    cards: [
-      { id: 1, title: "Card 1" },
-      { id: 2, title: "Card 2" },
-    ],
-  });
+
+  try {
+    const decoded = jwt.verify(token, SECRET_KEY);
+    res.json({
+      message: `Welcome, ${decoded.username}!`,
+      cards: [
+        { id: 1, title: "Card 1" },
+        { id: 2, title: "Card 2" },
+      ],
+    });
+  } catch (err) {
+    res.status(401).json({ message: "Invalid token" });
+  }
 });
 
 /**
- * 🚪 Logout Route (Destroy Session)
+ * 🚪 Logout Route (Client-side Token Deletion)
  */
 app.post("/api/logout", (req, res) => {
-  req.session.destroy((err) => {
-    if (err) {
-      return res.status(500).json({ message: "Logout failed" });
-    }
-    res.status(200).json({ message: "Logged out successfully" });
-  });
+  res.status(200).json({ message: "Logged out successfully" });
 });
 
 /**
@@ -85,11 +76,12 @@ app.get("/api/map", (req, res) => {
   res.json({ markers });
 });
 
+/**
+ * 🛠️ Session Check (Not needed anymore, but keeping for reference)
+ */
 app.get("/api/session", (req, res) => {
-  if (!req.session.user) {
-    return res.status(401).json({ message: "No active session" });
-  }
-  res.json({ username: req.session.user.username });
+  res.status(401).json({ message: "No active session" });
 });
+
 // Start Server
 app.listen(5000, () => console.log("✅ Server running on port 5000"));
