@@ -96,6 +96,7 @@ const Login = () => {
             label="Password"
             type="password"
             variant="outlined"
+            autoComplete="current-password"
             fullWidth
             value={password}
             onChange={(e) => setPassword(e.target.value)}
