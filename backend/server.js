@@ -70,16 +70,14 @@ app.post("/api/logout", (req, res) => {
     res.clearCookie("token", {
       httpOnly: true,
       secure: true,
-      sameSite: "None", // ✅ Ensure compatibility with cross-origin requests
+      sameSite: "None",
     });
-
-    return res.status(200).json({ message: "Logged out successfully" }); // ✅ Correct response
+    return res.status(200).json({ message: "Logged out successfully" });
   } catch (error) {
     console.error("Logout error:", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 });
-
 
 const markers = [
   { position: [77.6, 12.97] },
@@ -91,6 +89,17 @@ const markers = [
 
 app.get("/api/map", (req, res) => {
   res.json({ markers });
+});
+
+// 404 handler
+app.use((req, res, next) => {
+  res.status(404).json({ message: "Route not found" });
+});
+
+// General error handler
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(500).json({ message: "Something went wrong!" });
 });
 
 app.listen(5000, () => console.log("Server running on port 5000"));

@@ -10,38 +10,40 @@ import {
   CircularProgress,
   Button,
   Box,
-  Alert, // Import Alert from Material UI
+  Alert,
+  Snackbar,
 } from "@mui/material";
 
 const Dashboard = () => {
   const [cards, setCards] = useState([]);
-  const [loading, setLoading] = useState(true); // Add loading state
-  const [error, setError] = useState(null); // Add error state
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [logoutError, setLogoutError] = useState(null);
+  const [logoutSuccess, setLogoutSuccess] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
-    setLoading(true); // Set loading to true when fetching data
+    setLoading(true);
     axios
       .get("https://syncthreads-a.onrender.com/api/dashboard", {
         withCredentials: true,
       })
       .then((res) => {
         setCards(res.data.cards);
-        setLoading(false); // Set loading to false after successful fetch
+        setLoading(false);
       })
       .catch((err) => {
         console.error("Unauthorized:", err.response?.data);
-        setLoading(false); // Set loading to false on error
+        setLoading(false);
         setError(
           err.response?.data?.message || "Failed to load dashboard data."
-        ); // Set error message
+        );
         if (err.response?.status === 401) {
           navigate("/");
         }
       });
   }, [navigate]);
 
-  // Logout Function
   const handleLogout = async () => {
     try {
       await axios.post(
@@ -49,15 +51,15 @@ const Dashboard = () => {
         {},
         { withCredentials: true }
       );
-
-      // ✅ Manually clear the cookie (sometimes required for cross-origin cookies)
       document.cookie =
         "token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
-
-      navigate("/login"); // ✅ Redirect after logout
+      setLogoutSuccess(true);
+      navigate("/login");
     } catch (err) {
       console.error("Logout failed:", err.response?.data);
-      alert(err.response?.data?.message || "Logout failed. Please try again.");
+      setLogoutError(
+        err.response?.data?.message || "Logout failed. Please try again."
+      );
     }
   };
 
@@ -74,7 +76,6 @@ const Dashboard = () => {
         padding: 3,
       }}
     >
-      {/* Logout Button */}
       <Box
         display="flex"
         justifyContent="flex-end"
@@ -112,6 +113,12 @@ const Dashboard = () => {
         </Alert>
       )}
 
+      {logoutError && (
+        <Alert severity="error" onClose={() => setLogoutError(null)}>
+          {logoutError}
+        </Alert>
+      )}
+
       {loading ? (
         <CircularProgress sx={{ color: "#ff8a00" }} />
       ) : (
@@ -145,6 +152,13 @@ const Dashboard = () => {
           ))}
         </Grid>
       )}
+
+      <Snackbar
+        open={logoutSuccess}
+        autoHideDuration={6000}
+        onClose={() => setLogoutSuccess(false)}
+        message="Logged out successfully!"
+      />
     </Box>
   );
 };

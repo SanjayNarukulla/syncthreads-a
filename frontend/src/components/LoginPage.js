@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
+import Cookies from "js-cookie"; // Import js-cookie
 import {
   TextField,
   Button,
@@ -19,22 +20,12 @@ const Login = () => {
   const [errorMessage, setErrorMessage] = useState(null);
 
   useEffect(() => {
-    const isAuthenticated = localStorage.getItem("isAuthenticated");
-    if (isAuthenticated) {
+    const token = Cookies.get("token"); // Check if the token cookie exists
+    if (token) {
       navigate("/dashboard");
     } else {
-      axios
-        .get("https://syncthreads-a.onrender.com/api/dashboard", {
-          withCredentials: true,
-        })
-        .then(() => {
-          localStorage.setItem("isAuthenticated", "true");
-          navigate("/dashboard");
-        })
-        .catch(() => {})
-        .finally(() => setLoading(false));
+      setLoading(false);
     }
-    return () => {}; //cleanup function.
   }, [navigate]);
 
   if (loading)
@@ -61,8 +52,6 @@ const Login = () => {
         { username, password },
         { withCredentials: true }
       );
-
-      localStorage.setItem("isAuthenticated", "true");
       navigate("/dashboard");
     } catch (error) {
       setErrorMessage(
