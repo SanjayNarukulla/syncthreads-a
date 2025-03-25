@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import Map from "ol/Map";
 import View from "ol/View";
 import TileLayer from "ol/layer/Tile";
-import { fromLonLat } from "ol/proj";
+import { fromLonLat, toLonLat } from "ol/proj";
 import OSM from "ol/source/OSM";
 import XYZ from "ol/source/XYZ";
 import { Vector as VectorLayer } from "ol/layer";
@@ -23,15 +23,21 @@ import {
 } from "@mui/material";
 import "ol/ol.css";
 
-// Default map settings
-const defaultCenter = fromLonLat([78.9629, 20.5937]); // India
-const defaultZoom = 5;
+// Retrieve stored settings from sessionStorage
+const storedCenter = JSON.parse(sessionStorage.getItem("mapCenter")) || [
+  78.9629, 20.5937,
+];
+const storedZoom = sessionStorage.getItem("mapZoom") || 5;
+const storedLayer = sessionStorage.getItem("selectedLayer") || "osm";
 
 const MapView = () => {
   const [map, setMap] = useState(null);
-  const [selectedLayer, setSelectedLayer] = useState("osm");
+  const [selectedLayer, setSelectedLayer] = useState(storedLayer);
   const [markerLayer, setMarkerLayer] = useState(null);
   const [searchLocation, setSearchLocation] = useState("");
+  const [markers, setMarkers] = useState(
+    JSON.parse(sessionStorage.getItem("markers")) || []
+  );
 
   // Base layers
   const layers = {
@@ -54,18 +60,16 @@ const MapView = () => {
       target: "map",
       layers: [layers[selectedLayer]],
       view: new View({
-        center: defaultCenter,
-        zoom: defaultZoom,
+        center: fromLonLat(storedCenter),
+        zoom: parseInt(storedZoom, 10),
       }),
     });
 
     setMap(newMap);
 
-    // Create a marker layer
     const vectorLayer = new VectorLayer({
       source: new VectorSource(),
     });
-
     newMap.addLayer(vectorLayer);
     setMarkerLayer(vectorLayer);
 
@@ -76,13 +80,14 @@ const MapView = () => {
   useEffect(() => {
     if (map) {
       map.getLayers().setAt(0, layers[selectedLayer]);
+      sessionStorage.setItem("selectedLayer", selectedLayer);
     }
   }, [selectedLayer, map]);
 
   // Fetch markers from API
   useEffect(() => {
     axios
-      .get("http://localhost:5000/api/map")
+      .get("https://syncthreads-a.onrender.com/api/map")
       .then((res) => {
         if (markerLayer) {
           const vectorSource = markerLayer.getSource();
@@ -105,6 +110,17 @@ const MapView = () => {
       .catch(() => alert("Error fetching map markers"));
   }, [markerLayer]);
 
+  // Save map view (center & zoom) to sessionStorage
+  useEffect(() => {
+    if (map) {
+      map.getView().on("change", () => {
+        const center = toLonLat(map.getView().getCenter());
+        sessionStorage.setItem("mapCenter", JSON.stringify(center));
+        sessionStorage.setItem("mapZoom", map.getView().getZoom());
+      });
+    }
+  }, [map]);
+
   // Locate user
   const locateUser = () => {
     navigator.geolocation.getCurrentPosition(
@@ -123,6 +139,8 @@ const MapView = () => {
     if (map && markerLayer) {
       map.on("click", (event) => {
         const clickedCoord = event.coordinate;
+        const lonLat = toLonLat(clickedCoord);
+
         const newFeature = new Feature({
           geometry: new Point(clickedCoord),
         });
@@ -137,9 +155,35 @@ const MapView = () => {
         );
 
         markerLayer.getSource().addFeature(newFeature);
+
+        // Update markers state & sessionStorage
+        const updatedMarkers = [...markers, lonLat];
+        setMarkers(updatedMarkers);
+        sessionStorage.setItem("markers", JSON.stringify(updatedMarkers));
       });
     }
-  }, [map, markerLayer]);
+  }, [map, markerLayer, markers]);
+
+  // Load stored markers on map
+  useEffect(() => {
+    if (markerLayer && markers.length > 0) {
+      const vectorSource = markerLayer.getSource();
+      markers.forEach((position) => {
+        const feature = new Feature({
+          geometry: new Point(fromLonLat(position)),
+        });
+        feature.setStyle(
+          new Style({
+            image: new Icon({
+              src: "https://openlayers.org/en/latest/examples/data/icon.png",
+              scale: 0.05,
+            }),
+          })
+        );
+        vectorSource.addFeature(feature);
+      });
+    }
+  }, [markerLayer]);
 
   // Search Location Functionality
   const handleSearch = () => {
@@ -192,8 +236,6 @@ const MapView = () => {
           >
             🌍 OpenLayers Map
           </Typography>
-
-          {/* Map Controls */}
           <Box
             sx={{
               display: "flex",
@@ -204,7 +246,6 @@ const MapView = () => {
             <Button variant="contained" color="success" onClick={locateUser}>
               📍 Locate Me
             </Button>
-
             <Select
               value={selectedLayer}
               onChange={(e) => setSelectedLayer(e.target.value)}
@@ -219,23 +260,6 @@ const MapView = () => {
               <MenuItem value="dark">🌙Dark Mode</MenuItem>
             </Select>
           </Box>
-
-          {/* Search Bar */}
-          <Box sx={{ display: "flex", gap: 2, marginBottom: 2 }}>
-            <TextField
-              fullWidth
-              variant="outlined"
-              placeholder="Search Location"
-              value={searchLocation}
-              onChange={(e) => setSearchLocation(e.target.value)}
-              sx={{ background: "white", borderRadius: "5px" }}
-            />
-            <Button variant="contained" color="primary" onClick={handleSearch}>
-              🔍 Search
-            </Button>
-          </Box>
-
-          {/* Map Container */}
           <Box
             id="map"
             sx={{ height: "450px", width: "100%", borderRadius: "10px" }}

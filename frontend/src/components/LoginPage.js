@@ -1,34 +1,95 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
-import Cookies from "js-cookie"; // Import js-cookie
 import {
   TextField,
   Button,
   Typography,
   Box,
   Paper,
+  IconButton,
+  InputAdornment,
   CircularProgress,
   Alert,
 } from "@mui/material";
+import { Visibility, VisibilityOff } from "@mui/icons-material";
+
+const API_BASE_URL = "https://syncthreads-a.onrender.com";
 
 const Login = () => {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [checkingSession, setCheckingSession] = useState(true);
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(true);
-  const [errorMessage, setErrorMessage] = useState(null);
 
   useEffect(() => {
-    const token = Cookies.get("token"); // Check if the token cookie exists
-    if (token) {
-      navigate("/dashboard");
-    } else {
-      setLoading(false);
-    }
+    let isMounted = true;
+
+    const checkSession = async () => {
+      try {
+        const token = localStorage.getItem("token");
+        if (!token) {
+          if (isMounted) setCheckingSession(false);
+          return;
+        }
+
+        const res = await axios.get(`${API_BASE_URL}/api/session`, {
+          headers: { Authorization: `Bearer ${token}` },
+          withCredentials: true,
+        });
+
+        if (isMounted && res.status === 200) {
+          console.log("✅ Session active, redirecting...");
+          navigate("/dashboard");
+        }
+      } catch (error) {
+        if (isMounted) {
+          console.error("🚨 Session expired, logging out...", error);
+          localStorage.removeItem("token");
+          localStorage.removeItem("username");
+        }
+      } finally {
+        if (isMounted) setCheckingSession(false);
+      }
+    };
+
+    checkSession();
+
+    return () => {
+      isMounted = false;
+    };
   }, [navigate]);
 
-  if (loading)
+  const handleLogin = async (event) => {
+    event.preventDefault();
+    setLoading(true);
+    setError("");
+
+    try {
+      const res = await axios.post(
+        `${API_BASE_URL}/api/login`,
+        { username: username.trim(), password: password.trim() },
+        { withCredentials: true }
+      );
+
+      localStorage.setItem("token", res.data.token);
+      localStorage.setItem("username", username);
+      console.log("✅ Login successful, redirecting...");
+      navigate("/dashboard");
+    } catch (error) {
+      console.error("❌ Login Error:", error.response?.data || error.message);
+      setError(
+        error.response?.data?.message || "Invalid credentials, try again."
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (checkingSession) {
     return (
       <Box
         sx={{
@@ -36,30 +97,12 @@ const Login = () => {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          background: "linear-gradient(135deg,rgb(11, 20, 37) 0%, #2a5298 100%)",
         }}
       >
         <CircularProgress />
       </Box>
     );
-
-  const handleLogin = async (event) => {
-    event.preventDefault();
-
-    try {
-      await axios.post(
-        "https://syncthreads-a.onrender.com/api/login",
-        { username, password },
-        { withCredentials: true }
-      );
-      navigate("/dashboard");
-    } catch (error) {
-      setErrorMessage(
-        error.response?.data?.message ||
-          "Invalid credentials. Please try again."
-      );
-    }
-  };
+  }
 
   return (
     <Box
@@ -78,8 +121,8 @@ const Login = () => {
           width: 380,
           borderRadius: 4,
           backdropFilter: "blur(10px)",
-          backgroundColor: "rgba(255, 255, 255, 0.15)",
-          boxShadow: "0px 4px 20px rgba(0, 0, 0, 0.2)",
+          backgroundColor: "rgba(255, 255, 255, 0.2)",
+          boxShadow: "0px 4px 20px rgba(0, 0, 0, 0.3)",
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
@@ -93,49 +136,45 @@ const Login = () => {
           Enter your credentials to continue
         </Typography>
 
+        {error && (
+          <Alert severity="error" sx={{ mb: 2 }}>
+            {error}
+          </Alert>
+        )}
+
         <form onSubmit={handleLogin} style={{ width: "100%" }}>
-          {errorMessage && (
-            <Alert severity="error" sx={{ marginBottom: 2 }}>
-              {errorMessage}
-            </Alert>
-          )}
           <TextField
             label="Username"
             variant="outlined"
             fullWidth
             value={username}
             onChange={(e) => setUsername(e.target.value)}
-            sx={{
-              mb: 2,
-              "& .MuiOutlinedInput-root": {
-                borderRadius: 3,
-                backgroundColor: "rgba(255,255,255,0.2)",
-                color: "#fff",
-                "& fieldset": { borderColor: "rgba(255,255,255,0.3)" },
-                "&:hover fieldset": { borderColor: "#fff" },
-              },
-              "& .MuiInputLabel-root": { color: "#ddd" },
-            }}
+            autoComplete="username"
+            disabled={loading}
+            sx={{ mb: 2 }}
           />
 
           <TextField
             label="Password"
-            type="password"
+            type={showPassword ? "text" : "password"}
             variant="outlined"
-            autoComplete="current-password"
             fullWidth
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            sx={{
-              mb: 2,
-              "& .MuiOutlinedInput-root": {
-                borderRadius: 3,
-                backgroundColor: "rgba(255,255,255,0.2)",
-                color: "#fff",
-                "& fieldset": { borderColor: "rgba(255,255,255,0.3)" },
-                "&:hover fieldset": { borderColor: "#fff" },
-              },
-              "& .MuiInputLabel-root": { color: "#ddd" },
+            autoComplete="current-password"
+            disabled={loading}
+            sx={{ mb: 2 }}
+            InputProps={{
+              endAdornment: (
+                <InputAdornment position="end">
+                  <IconButton
+                    onClick={() => setShowPassword(!showPassword)}
+                    edge="end"
+                  >
+                    {showPassword ? <VisibilityOff /> : <Visibility />}
+                  </IconButton>
+                </InputAdornment>
+              ),
             }}
           />
 
@@ -143,17 +182,10 @@ const Login = () => {
             variant="contained"
             fullWidth
             type="submit"
-            sx={{
-              mt: 1,
-              background: "linear-gradient(90deg, #ff8a00 0%, #da1b60 100%)",
-              color: "#fff",
-              borderRadius: 3,
-              padding: "10px",
-              fontSize: "1rem",
-              "&:hover": { opacity: 0.9 },
-            }}
+            disabled={loading}
+            sx={{ mt: 1 }}
           >
-            Login
+            {loading ? <CircularProgress size={24} color="inherit" /> : "Login"}
           </Button>
         </form>
       </Paper>

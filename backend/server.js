@@ -7,51 +7,61 @@ require("dotenv").config();
 const app = express();
 app.use(express.json());
 
-// Allow frontend to send credentials
-app.use(cors({ origin: "http://localhost:3000", credentials: true }));
+const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:3000";
+app.use(cors({ origin: FRONTEND_URL, credentials: true }));
 
-const SECRET_KEY = process.env.JWT_SECRET || "your_secret_key"; // Change this in production
+const SECRET_KEY = process.env.JWT_SECRET || "your_secret_key";
 
-// Dummy Users (Replace with Database in Production)
+// Simulated User Database
 const users = [{ username: "admin", password: bcrypt.hashSync("password", 8) }];
 
 /**
- * 🔐 Login Route (JWT Authentication)
+ * 🛡️ Middleware for JWT Authentication
+ */
+const authenticateToken = (req, res, next) => {
+  const token = req.headers.authorization?.split(" ")[1];
+
+  if (!token) {
+    return res
+      .status(401)
+      .json({ message: "Access denied. No token provided." });
+  }
+
+  try {
+    const decoded = jwt.verify(token, SECRET_KEY);
+    req.user = decoded;
+    next();
+  } catch (err) {
+    return res.status(401).json({ message: "Invalid or expired token." }); // Changed to 401
+  }
+};
+
+/**
+ * 🔐 Login Route
  */
 app.post("/api/login", (req, res) => {
   const { username, password } = req.body;
   const user = users.find((u) => u.username === username);
 
-  if (user && bcrypt.compareSync(password, user.password)) {
-    const token = jwt.sign({ username }, SECRET_KEY, { expiresIn: "1h" });
-
-    return res.json({ message: "Login successful", token });
+  if (!user || !bcrypt.compareSync(password, user.password)) {
+    return res.status(401).json({ message: "Invalid username or password." });
   }
-  res.status(401).json({ message: "Invalid credentials" });
+
+  const token = jwt.sign({ username }, SECRET_KEY, { expiresIn: "1h" });
+  res.json({ message: "Login successful", token });
 });
 
 /**
- * 📌 Dashboard Route (JWT Auth)
+ * 📌 Dashboard Route (Protected)
  */
-app.get("/api/dashboard", (req, res) => {
-  const token = req.headers.authorization?.split(" ")[1];
-
-  if (!token) {
-    return res.status(401).json({ message: "Unauthorized" });
-  }
-
-  try {
-    const decoded = jwt.verify(token, SECRET_KEY);
-    res.json({
-      message: `Welcome, ${decoded.username}!`,
-      cards: [
-        { id: 1, title: "Card 1" },
-        { id: 2, title: "Card 2" },
-      ],
-    });
-  } catch (err) {
-    res.status(401).json({ message: "Invalid token" });
-  }
+app.get("/api/dashboard", authenticateToken, (req, res) => {
+  res.json({
+    message: `Welcome, ${req.user.username}!`,
+    cards: [
+      { id: 1, title: "Card 1" },
+      { id: 2, title: "Card 2" },
+    ],
+  });
 });
 
 /**
@@ -77,11 +87,12 @@ app.get("/api/map", (req, res) => {
 });
 
 /**
- * 🛠️ Session Check (Not needed anymore, but keeping for reference)
+ * 🛠️ Session Check
  */
-app.get("/api/session", (req, res) => {
-  res.status(401).json({ message: "No active session" });
+app.get("/api/session", authenticateToken, (req, res) => {
+  res.json({ message: "Session active", user: req.user });
 });
 
 // Start Server
-app.listen(5000, () => console.log("✅ Server running on port 5000"));
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));

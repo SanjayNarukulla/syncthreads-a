@@ -14,6 +14,8 @@ import {
   Snackbar,
 } from "@mui/material";
 
+const API_BASE_URL = "https://syncthreads-a.onrender.com"; // Replace with your production URL if needed
+
 const Dashboard = () => {
   const [cards, setCards] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -23,40 +25,79 @@ const Dashboard = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    setLoading(true);
-    axios
-      .get("https://syncthreads-a.onrender.com/api/dashboard", {
-        withCredentials: true,
-      })
-      .then((res) => {
-        setCards(res.data.cards);
-        setLoading(false);
-      })
-      .catch((err) => {
-        console.error("Unauthorized:", err.response?.data);
-        setLoading(false);
-        setError(
-          err.response?.data?.message || "Failed to load dashboard data."
+    let isMounted = true;
+
+    console.log("🔄 Checking session...");
+
+    const fetchDashboard = async () => {
+      try {
+        const token = localStorage.getItem("token");
+        if (!token) throw new Error("No token found. Please login.");
+
+        const response = await axios.get(`${API_BASE_URL}/api/dashboard`, {
+          headers: { Authorization: `Bearer ${token}` },
+          withCredentials: true,
+        });
+
+        if (isMounted) setCards(response.data.cards);
+      } catch (err) {
+        console.error(
+          "❌ Dashboard Load Error:",
+          err.response?.data || err.message
         );
-        if (err.response?.status === 401) {
-          navigate("/");
+        if (isMounted) {
+          setError(
+            err.response?.data?.message || "Failed to load dashboard data."
+          );
         }
-      });
-  }, [navigate]);
+
+        if (
+          err.response?.status === 401 ||
+          err.message.includes("No token found")
+        ) {
+          handleSessionExpired();
+        }
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    };
+
+    fetchDashboard();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const handleSessionExpired = () => {
+    if (!localStorage.getItem("token")) return;
+
+    console.warn("⚠️ Session expired, logging out...");
+
+    localStorage.removeItem("token");
+    document.cookie = "token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+
+    setError("Session expired. Redirecting...");
+    setTimeout(() => {
+      if (window.location.pathname !== "/login") navigate("/login");
+    }, 2000);
+  };
 
   const handleLogout = async () => {
     try {
       await axios.post(
-        "https://syncthreads-a.onrender.com/api/logout",
+        `${API_BASE_URL}/api/logout`,
         {},
         { withCredentials: true }
       );
+
+      localStorage.removeItem("token");
       document.cookie =
         "token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
       setLogoutSuccess(true);
-      navigate("/login");
+      navigate("/"); // Direct navigation, no timeout
     } catch (err) {
-      console.error("Logout failed:", err.response?.data);
+      console.error("❌ Logout Failed:", err.response?.data || err.message);
       setLogoutError(
         err.response?.data?.message || "Logout failed. Please try again."
       );
@@ -87,11 +128,8 @@ const Dashboard = () => {
           sx={{
             background: "linear-gradient(90deg, #ff8a00 0%, #da1b60 100%)",
             color: "white",
-            padding: "8px 16px",
             fontWeight: "bold",
-            "&:hover": {
-              opacity: 0.9,
-            },
+            "&:hover": { opacity: 0.9 },
           }}
           onClick={handleLogout}
         >
@@ -102,17 +140,16 @@ const Dashboard = () => {
       <Typography
         variant="h4"
         align="center"
-        sx={{ marginBottom: 3, fontWeight: "bold" }}
+        sx={{ mt: 2, mb: 3, fontWeight: "bold" }}
       >
         Welcome to Your Dashboard 🚀
       </Typography>
 
       {error && (
-        <Alert severity="error" sx={{ marginBottom: 2 }}>
+        <Alert severity="error" sx={{ mb: 2 }}>
           {error}
         </Alert>
       )}
-
       {logoutError && (
         <Alert severity="error" onClose={() => setLogoutError(null)}>
           {logoutError}
@@ -120,42 +157,49 @@ const Dashboard = () => {
       )}
 
       {loading ? (
-        <CircularProgress sx={{ color: "#ff8a00" }} />
+        <CircularProgress sx={{ color: "#ff8a00", mb: 2 }} />
+      ) : cards.length > 0 ? (
+        <Container>
+          <Grid
+            container
+            spacing={3}
+            sx={{ maxWidth: "1200px", justifyContent: "center" }}
+          >
+            {cards.map((card) => (
+              <Grid item xs={12} sm={6} md={4} key={card.id}>
+                <Card
+                  sx={{
+                    background: "rgba(255, 255, 255, 0.15)",
+                    backdropFilter: "blur(10px)",
+                    boxShadow: "0px 4px 20px rgba(0, 0, 0, 0.2)",
+                    borderRadius: "12px",
+                    color: "white",
+                    cursor: "pointer",
+                    transition: "transform 0.3s ease-in-out",
+                    "&:hover": {
+                      transform: "scale(1.05)",
+                      boxShadow: "0px 8px 25px rgba(0, 0, 0, 0.3)",
+                    },
+                  }}
+                  onClick={() => navigate("/map")}
+                >
+                  <CardContent>
+                    <Typography variant="h6" sx={{ fontWeight: "bold" }}>
+                      {card.title}
+                    </Typography>
+                  </CardContent>
+                </Card>
+              </Grid>
+            ))}
+          </Grid>
+        </Container>
       ) : (
-        <Grid
-          container
-          spacing={3}
-          sx={{ maxWidth: "1200px", justifyContent: "center" }}
-        >
-          {cards.map((card) => (
-            <Grid item xs={12} sm={6} md={4} key={card.id}>
-              <Card
-                sx={{
-                  background: "rgba(255, 255, 255, 0.15)",
-                  backdropFilter: "blur(10px)",
-                  boxShadow: "0px 4px 20px rgba(0, 0, 0, 0.2)",
-                  borderRadius: "12px",
-                  color: "white",
-                  cursor: "pointer",
-                  transition: "transform 0.3s ease-in-out",
-                  "&:hover": { transform: "scale(1.05)" },
-                }}
-                onClick={() => navigate("/map")}
-              >
-                <CardContent>
-                  <Typography variant="h6" sx={{ fontWeight: "bold" }}>
-                    {card.title}
-                  </Typography>
-                </CardContent>
-              </Card>
-            </Grid>
-          ))}
-        </Grid>
+        <Typography>No data available.</Typography>
       )}
 
       <Snackbar
         open={logoutSuccess}
-        autoHideDuration={6000}
+        autoHideDuration={3000}
         onClose={() => setLogoutSuccess(false)}
         message="Logged out successfully!"
       />
