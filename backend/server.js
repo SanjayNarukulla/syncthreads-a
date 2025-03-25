@@ -85,5 +85,11 @@ app.get("/api/map", (req, res) => {
   res.json({ markers });
 });
 
+app.get("/api/session", (req, res) => {
+  if (!req.session.user) {
+    return res.status(401).json({ message: "No active session" });
+  }
+  res.json({ username: req.session.user.username });
+});
 // Start Server
 app.listen(5000, () => console.log("✅ Server running on port 5000"));
