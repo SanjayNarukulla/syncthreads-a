@@ -42,20 +42,23 @@ const Dashboard = () => {
   }, [navigate]);
 
   // Logout Function
-  const handleLogout = () => {
-    axios
-      .post(
+  const handleLogout = async () => {
+    try {
+      await axios.post(
         "https://syncthreads-a.onrender.com/api/logout",
         {},
         { withCredentials: true }
-      )
-      .then(() => navigate("/"))
-      .catch((err) => {
-        console.error("Logout failed:", err.response?.data);
-        setError(
-          err.response?.data?.message || "Logout failed. Please try again."
-        );
-      });
+      );
+
+      // ✅ Manually clear the cookie (sometimes required for cross-origin cookies)
+      document.cookie =
+        "token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+
+      navigate("/login"); // ✅ Redirect after logout
+    } catch (err) {
+      console.error("Logout failed:", err.response?.data);
+      alert(err.response?.data?.message || "Logout failed. Please try again.");
+    }
   };
 
   return (

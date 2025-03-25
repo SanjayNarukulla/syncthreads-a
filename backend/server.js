@@ -67,12 +67,19 @@ app.get("/api/dashboard", (req, res) => {
 
 app.post("/api/logout", (req, res) => {
   try {
-    res.clearCookie("token").json({ message: "Logged out successfully" });
+    res.clearCookie("token", {
+      httpOnly: true,
+      secure: true,
+      sameSite: "None", // ✅ Ensure compatibility with cross-origin requests
+    });
+
+    return res.status(200).json({ message: "Logged out successfully" }); // ✅ Correct response
   } catch (error) {
     console.error("Logout error:", error);
-    res.status(500).json({ message: "Internal server error" });
+    return res.status(500).json({ message: "Internal server error" });
   }
 });
+
 
 const markers = [
   { position: [77.6, 12.97] },
