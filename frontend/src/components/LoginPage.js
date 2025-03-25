@@ -36,7 +36,7 @@ const Login = () => {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          background: "linear-gradient(135deg, #1e3c72 0%, #2a5298 100%)",
+          background: "linear-gradient(135deg,rgb(11, 20, 37) 0%, #2a5298 100%)",
         }}
       >
         <CircularProgress />

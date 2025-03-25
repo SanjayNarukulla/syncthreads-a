@@ -8,7 +8,7 @@ require("dotenv").config();
 const app = express();
 app.use(
   cors({
-    origin: "https://syncthreads-a-1.onrender.com",
+    origin: ["https://syncthreads-a-1.onrender.com","http://localhost:3000/"],
     credentials: true,
   })
 );
