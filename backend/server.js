@@ -7,7 +7,7 @@ require("dotenv").config();
 
 const app = express();
 app.use(
-  cors({ origin: "https://syncthreads-a.onrender.com", credentials: true })
+  cors({ origin: "https://syncthreads-a-1.onrender.com", credentials: true })
 );
 app.use(express.json());
 app.use(cookieParser());
