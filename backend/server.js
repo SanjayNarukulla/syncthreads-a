@@ -8,10 +8,7 @@ require("dotenv").config();
 const app = express();
 app.use(
   cors({
-    origin: [
-      "https://syncthreads-a-1.onrender.com",
-      "https://syncthreads-a.onrender.com",
-    ],
+    origin: "https://syncthreads-a-1.onrender.com",
     credentials: true,
   })
 );
@@ -32,8 +29,8 @@ app.post("/api/login", (req, res) => {
     res
       .cookie("token", token, {
         httpOnly: true,
-        secure: false, // Set to true if using HTTPS
-        sameSite: "strict",
+        secure: true, // Set to true if using HTTPS
+        sameSite: "None",
       })
       .json({ message: "Login successful" });
   } else {
@@ -42,6 +39,7 @@ app.post("/api/login", (req, res) => {
 });
 
 app.get("/api/dashboard", (req, res) => {
+  console.log("Cookies received:", req.cookies); 
   const token = req.cookies.token;
   if (!token) return res.status(401).json({ message: "Unauthorized" });
 
