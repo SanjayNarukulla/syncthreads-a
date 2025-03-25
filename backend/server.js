@@ -1,78 +1,89 @@
 const express = require("express");
 const cors = require("cors");
-const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
-const cookieParser = require("cookie-parser");
+const session = require("express-session");
+const SQLiteStore = require("connect-sqlite3")(session);
 require("dotenv").config();
 
 const app = express();
-app.use(cors({ origin: "http://localhost:3000", credentials: true }));
 app.use(express.json());
-app.use(cookieParser());
+app.use(cors({ origin: "http://localhost:3000", credentials: true }));
 
+// Configure session middleware
+app.use(
+  session({
+    secret: process.env.SESSION_SECRET || "your_secret_key", // Change this in production
+    resave: false,
+    saveUninitialized: false,
+    store: new SQLiteStore({ db: "sessions.sqlite" }),
+    cookie: {
+      httpOnly: true,
+      secure: false, // Set to true if using HTTPS
+      sameSite: "lax",
+      maxAge: 1000 * 60 * 60 * 24, // 1 day
+    },
+  })
+);
+
+// Dummy Users (Replace with Database in Production)
 const users = [{ username: "admin", password: bcrypt.hashSync("password", 8) }];
 
+/**
+ * 🔐 Login Route (Session-based)
+ */
 app.post("/api/login", (req, res) => {
   const { username, password } = req.body;
   const user = users.find((u) => u.username === username);
 
   if (user && bcrypt.compareSync(password, user.password)) {
-    const token = jwt.sign({ username }, process.env.JWT_SECRET, {
-      expiresIn: "1h",
-    });
-
-    res
-      .cookie("token", token, {
-        httpOnly: true,
-        secure: false, // Set to true if using HTTPS
-        sameSite: "strict",
-      })
-      .json({ message: "Login successful" });
-  } else {
-    res.status(401).json({ message: "Invalid credentials" });
+    req.session.user = { username }; // Store user info in session
+    return res.json({ message: "Login successful", username });
   }
+  res.status(401).json({ message: "Invalid credentials" });
 });
 
+/**
+ * 📌 Dashboard Route (Session Auth)
+ */
 app.get("/api/dashboard", (req, res) => {
-  const token = req.cookies.token;
-  if (!token) return res.status(401).json({ message: "Unauthorized" });
-
-  jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
-    if (err) return res.status(403).json({ message: "Invalid token" });
-
-    res.json({
-      message: `Welcome, ${decoded.username}!`,
-      cards: [
-        { id: 1, title: "Card 1" },
-        { id: 2, title: "Card 2" },
-      ],
-    });
+  if (!req.session.user) {
+    return res.status(401).json({ message: "Unauthorized" });
+  }
+  res.json({
+    message: `Welcome, ${req.session.user.username}!`,
+    cards: [
+      { id: 1, title: "Card 1" },
+      { id: 2, title: "Card 2" },
+    ],
   });
 });
 
+/**
+ * 🚪 Logout Route (Destroy Session)
+ */
 app.post("/api/logout", (req, res) => {
-  res
-    .clearCookie("token", {
-      httpOnly: true,
-      secure: false, // Set true if using HTTPS
-      sameSite: "strict",
-    })
-    .status(200)
-    .json({ message: "Logged out successfully" });
+  req.session.destroy((err) => {
+    if (err) {
+      return res.status(500).json({ message: "Logout failed" });
+    }
+    res.status(200).json({ message: "Logged out successfully" });
+  });
 });
 
-
-// Map API
+/**
+ * 🗺️ Map API (No Auth Required)
+ */
 const markers = [
-  { position: [77.6, 12.97] }, // Example marker 1 (Bangalore)
-  { position: [78.4, 17.4] },  // Example marker 2 (Hyderabad)
-  { position: [72.8, 19.07] },  // Example marker 3 (Mumbai)
-  { position: [88.3, 22.57] },  // Example marker 4 (Kolkata)
-  { position: [77.2, 28.61] },  // Example marker 5 (Delhi)
+  { position: [77.6, 12.97] }, // Bangalore
+  { position: [78.4, 17.4] }, // Hyderabad
+  { position: [72.8, 19.07] }, // Mumbai
+  { position: [88.3, 22.57] }, // Kolkata
+  { position: [77.2, 28.61] }, // Delhi
 ];
 
 app.get("/api/map", (req, res) => {
   res.json({ markers });
 });
 
-app.listen(5000, () => console.log("Server running on port 5000"));
+// Start Server
+app.listen(5000, () => console.log("✅ Server running on port 5000"));
