@@ -82,7 +82,7 @@ const MapView = () => {
   // Fetch markers from API
   useEffect(() => {
     axios
-      .get("http://localhost:5000/api/map")
+      .get("https://syncthreads-a.onrender.com/api/map")
       .then((res) => {
         if (markerLayer) {
           const vectorSource = markerLayer.getSource();

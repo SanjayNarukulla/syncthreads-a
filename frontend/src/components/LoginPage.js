@@ -17,7 +17,9 @@ const Login = () => {
   //  Redirect if already authenticated
   useEffect(() => {
     axios
-      .get("http://localhost:5000/api/dashboard", { withCredentials: true })
+      .get("https://syncthreads-a.onrender.com/api/dashboard", {
+        withCredentials: true,
+      })
       .then(() => navigate("/dashboard"))
       .catch(() => {}); // Ignore errors
   }, [navigate]);
@@ -27,7 +29,7 @@ const Login = () => {
 
     try {
       await axios.post(
-        "http://localhost:5000/api/login",
+        "https://syncthreads-a.onrender.com/api/login",
         { username, password },
         { withCredentials: true } // ✅ Allow cookies
       );

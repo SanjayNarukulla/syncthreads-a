@@ -18,7 +18,9 @@ const Dashboard = () => {
 
   useEffect(() => {
     axios
-      .get("http://localhost:5000/api/dashboard", { withCredentials: true }) // ✅ Send cookies
+      .get("https://syncthreads-a.onrender.com/api/dashboard", {
+        withCredentials: true,
+      }) // ✅ Send cookies
       .then((res) => setCards(res.data.cards))
       .catch((error) => {
         console.error("Unauthorized:", error.response?.data);
@@ -29,7 +31,11 @@ const Dashboard = () => {
   // Logout Function
   const handleLogout = () => {
     axios
-      .post("http://localhost:5000/api/logout", {}, { withCredentials: true })
+      .post(
+        "https://syncthreads-a.onrender.com/api/logout",
+        {},
+        { withCredentials: true }
+      )
       .then(() => navigate("/"))
       .catch((error) => console.error("Logout failed:", error.response?.data));
   };
