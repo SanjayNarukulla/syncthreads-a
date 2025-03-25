@@ -17,58 +17,69 @@ app.use(cookieParser());
 
 const users = [{ username: "admin", password: bcrypt.hashSync("password", 8) }];
 
-app.post("/api/login", (req, res) => {
-  const { username, password } = req.body;
-  const user = users.find((u) => u.username === username);
+app.post("/api/login", async (req, res) => {
+  try {
+    const { username, password } = req.body;
+    const user = users.find((u) => u.username === username);
 
-  if (user && bcrypt.compareSync(password, user.password)) {
-    const token = jwt.sign({ username }, process.env.JWT_SECRET, {
-      expiresIn: "1h",
-    });
+    if (user && (await bcrypt.compare(password, user.password))) {
+      const token = jwt.sign({ username }, process.env.JWT_SECRET, {
+        expiresIn: "1h",
+      });
 
-    res
-      .cookie("token", token, {
-        httpOnly: true,
-        secure: true, // Set to true if using HTTPS
-        sameSite: "None",
-      })
-      .json({ message: "Login successful" });
-  } else {
-    res.status(401).json({ message: "Invalid credentials" });
+      res
+        .cookie("token", token, {
+          httpOnly: true,
+          secure: true,
+          sameSite: "None",
+        })
+        .json({ message: "Login successful" });
+    } else {
+      res.status(401).json({ message: "Invalid credentials" });
+    }
+  } catch (error) {
+    console.error("Login error:", error);
+    res.status(500).json({ message: "Internal server error" });
   }
 });
 
 app.get("/api/dashboard", (req, res) => {
-  console.log("Cookies received:", req.cookies); // ✅ Debugging
+  try {
+    const token = req.cookies.token;
+    if (!token) return res.status(401).json({ message: "Unauthorized" });
 
-  const token = req.cookies.token;
-  if (!token) return res.status(401).json({ message: "Unauthorized" });
+    jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
+      if (err) return res.status(403).json({ message: "Invalid token" });
 
-  jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
-    if (err) return res.status(403).json({ message: "Invalid token" });
-
-    res.json({
-      message: `Welcome, ${decoded.username}!`,
-      cards: [
-        { id: 1, title: "Card 1" },
-        { id: 2, title: "Card 2" },
-      ],
+      res.json({
+        message: `Welcome, ${decoded.username}!`,
+        cards: [
+          { id: 1, title: "Card 1" },
+          { id: 2, title: "Card 2" },
+        ],
+      });
     });
-  });
+  } catch (error) {
+    console.error("Dashboard error:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
 });
-
 
 app.post("/api/logout", (req, res) => {
-  res.clearCookie("token").json({ message: "Logged out successfully" });
+  try {
+    res.clearCookie("token").json({ message: "Logged out successfully" });
+  } catch (error) {
+    console.error("Logout error:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
 });
 
-// Map API
 const markers = [
-  { position: [77.6, 12.97] }, // Example marker 1 (Bangalore)
-  { position: [78.4, 17.4] }, // Example marker 2 (Hyderabad)
-  { position: [72.8, 19.07] }, // Example marker 3 (Mumbai)
-  { position: [88.3, 22.57] }, // Example marker 4 (Kolkata)
-  { position: [77.2, 28.61] }, // Example marker 5 (Delhi)
+  { position: [77.6, 12.97] },
+  { position: [78.4, 17.4] },
+  { position: [72.8, 19.07] },
+  { position: [88.3, 22.57] },
+  { position: [77.2, 28.61] },
 ];
 
 app.get("/api/map", (req, res) => {

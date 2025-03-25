@@ -1,15 +1,23 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
-import { TextField, Button, Typography, Box, Paper } from "@mui/material";
+import {
+  TextField,
+  Button,
+  Typography,
+  Box,
+  Paper,
+  CircularProgress,
+  Alert,
+} from "@mui/material";
 
 const Login = () => {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState(null);
 
-  //  Redirect if already authenticated
   useEffect(() => {
     const isAuthenticated = localStorage.getItem("isAuthenticated");
     if (isAuthenticated) {
@@ -26,24 +34,41 @@ const Login = () => {
         .catch(() => {})
         .finally(() => setLoading(false));
     }
+    return () => {}; //cleanup function.
   }, [navigate]);
 
-  if (loading) return <p>Loading...</p>;
+  if (loading)
+    return (
+      <Box
+        sx={{
+          height: "100vh",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          background: "linear-gradient(135deg, #1e3c72 0%, #2a5298 100%)",
+        }}
+      >
+        <CircularProgress />
+      </Box>
+    );
 
   const handleLogin = async (event) => {
-    event.preventDefault(); // Prevent page reload
+    event.preventDefault();
 
     try {
-      const response = await axios.post(
+      await axios.post(
         "https://syncthreads-a.onrender.com/api/login",
         { username, password },
-        { withCredentials: true } // ✅ Allow cookies
+        { withCredentials: true }
       );
 
-      localStorage.setItem("isAuthenticated", "true"); // ✅ Store login state
+      localStorage.setItem("isAuthenticated", "true");
       navigate("/dashboard");
     } catch (error) {
-      alert("Invalid credentials. Please try again.");
+      setErrorMessage(
+        error.response?.data?.message ||
+          "Invalid credentials. Please try again."
+      );
     }
   };
 
@@ -80,6 +105,11 @@ const Login = () => {
         </Typography>
 
         <form onSubmit={handleLogin} style={{ width: "100%" }}>
+          {errorMessage && (
+            <Alert severity="error" sx={{ marginBottom: 2 }}>
+              {errorMessage}
+            </Alert>
+          )}
           <TextField
             label="Username"
             variant="outlined"

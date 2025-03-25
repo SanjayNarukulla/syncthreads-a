@@ -10,21 +10,34 @@ import {
   CircularProgress,
   Button,
   Box,
+  Alert, // Import Alert from Material UI
 } from "@mui/material";
 
 const Dashboard = () => {
   const [cards, setCards] = useState([]);
+  const [loading, setLoading] = useState(true); // Add loading state
+  const [error, setError] = useState(null); // Add error state
   const navigate = useNavigate();
 
   useEffect(() => {
+    setLoading(true); // Set loading to true when fetching data
     axios
       .get("https://syncthreads-a.onrender.com/api/dashboard", {
         withCredentials: true,
-      }) // ✅ Send cookies
-      .then((res) => setCards(res.data.cards))
-      .catch((error) => {
-        console.error("Unauthorized:", error.response?.data);
-        navigate("/"); // Redirect to login if unauthorized
+      })
+      .then((res) => {
+        setCards(res.data.cards);
+        setLoading(false); // Set loading to false after successful fetch
+      })
+      .catch((err) => {
+        console.error("Unauthorized:", err.response?.data);
+        setLoading(false); // Set loading to false on error
+        setError(
+          err.response?.data?.message || "Failed to load dashboard data."
+        ); // Set error message
+        if (err.response?.status === 401) {
+          navigate("/");
+        }
       });
   }, [navigate]);
 
@@ -37,7 +50,12 @@ const Dashboard = () => {
         { withCredentials: true }
       )
       .then(() => navigate("/"))
-      .catch((error) => console.error("Logout failed:", error.response?.data));
+      .catch((err) => {
+        console.error("Logout failed:", err.response?.data);
+        setError(
+          err.response?.data?.message || "Logout failed. Please try again."
+        );
+      });
   };
 
   return (
@@ -85,7 +103,13 @@ const Dashboard = () => {
         Welcome to Your Dashboard 🚀
       </Typography>
 
-      {cards.length === 0 ? (
+      {error && (
+        <Alert severity="error" sx={{ marginBottom: 2 }}>
+          {error}
+        </Alert>
+      )}
+
+      {loading ? (
         <CircularProgress sx={{ color: "#ff8a00" }} />
       ) : (
         <Grid
