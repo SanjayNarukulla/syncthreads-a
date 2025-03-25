@@ -39,7 +39,8 @@ app.post("/api/login", (req, res) => {
 });
 
 app.get("/api/dashboard", (req, res) => {
-  console.log("Cookies received:", req.cookies); 
+  console.log("Cookies received:", req.cookies); // ✅ Debugging
+
   const token = req.cookies.token;
   if (!token) return res.status(401).json({ message: "Unauthorized" });
 
@@ -55,6 +56,7 @@ app.get("/api/dashboard", (req, res) => {
     });
   });
 });
+
 
 app.post("/api/logout", (req, res) => {
   res.clearCookie("token").json({ message: "Logged out successfully" });
