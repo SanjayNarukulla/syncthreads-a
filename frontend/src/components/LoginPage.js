@@ -1,39 +1,46 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
-import {
-  TextField,
-  Button,
-  Typography,
-  Box,
-  Paper,
-} from "@mui/material";
+import { TextField, Button, Typography, Box, Paper } from "@mui/material";
 
 const Login = () => {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const navigate = useNavigate();
+  const [loading, setLoading] = useState(true);
 
   //  Redirect if already authenticated
   useEffect(() => {
-    axios
-      .get("https://syncthreads-a.onrender.com/api/dashboard", {
-        withCredentials: true,
-      })
-      .then(() => navigate("/dashboard"))
-      .catch(() => {}); // Ignore errors
+    const isAuthenticated = localStorage.getItem("isAuthenticated");
+    if (isAuthenticated) {
+      navigate("/dashboard");
+    } else {
+      axios
+        .get("https://syncthreads-a.onrender.com/api/dashboard", {
+          withCredentials: true,
+        })
+        .then(() => {
+          localStorage.setItem("isAuthenticated", "true");
+          navigate("/dashboard");
+        })
+        .catch(() => {})
+        .finally(() => setLoading(false));
+    }
   }, [navigate]);
+
+  if (loading) return <p>Loading...</p>;
 
   const handleLogin = async (event) => {
     event.preventDefault(); // Prevent page reload
 
     try {
-      await axios.post(
+      const response = await axios.post(
         "https://syncthreads-a.onrender.com/api/login",
         { username, password },
         { withCredentials: true } // ✅ Allow cookies
       );
 
+      localStorage.setItem("isAuthenticated", "true"); // ✅ Store login state
       navigate("/dashboard");
     } catch (error) {
       alert("Invalid credentials. Please try again.");
